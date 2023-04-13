@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "serde",
+    "License": "Apache License V2.0, MIT",
+    "License File": "LICENSE-APACHE, LICENSE-MIT",
+    "Version Number": "1.0.136",
+    "Owner": "xuelei3@huawei.com",
+    "Upstream URL": "https://github.com/serde-rs/serde",
+    "Description": "A generic serialization/deserialization framework."
+  }
+]
