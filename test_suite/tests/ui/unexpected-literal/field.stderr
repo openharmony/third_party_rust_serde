@@ -1,4 +1,4 @@
-error: unexpected literal in nested attribute, expected ident
+error: unexpected literal in serde field attribute
  --> tests/ui/unexpected-literal/field.rs:5:13
   |
 5 |     #[serde("literal")]

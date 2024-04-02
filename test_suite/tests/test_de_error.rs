@@ -1,12 +1,8 @@
-#![allow(
-    clippy::derive_partial_eq_without_eq,
-    clippy::empty_enum,
-    clippy::unreadable_literal
-)]
+#![allow(clippy::empty_enum, clippy::unreadable_literal)]
 #![cfg_attr(feature = "unstable", feature(never_type))]
 
-use serde::de::{Deserialize, IntoDeserializer};
-use serde_derive::Deserialize;
+use serde::de::IntoDeserializer;
+use serde::Deserialize;
 use serde_test::{assert_de_tokens_error, Token};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::ffi::{CStr, CString};
@@ -1434,7 +1430,7 @@ fn test_number_from_string() {
 fn test_integer_from_float() {
     assert_de_tokens_error::<isize>(
         &[Token::F32(0.0)],
-        "invalid type: floating point `0.0`, expected isize",
+        "invalid type: floating point `0`, expected isize",
     );
 }
 

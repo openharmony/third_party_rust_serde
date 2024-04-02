@@ -10,13 +10,13 @@ You may be looking for:
 - [Data formats supported by Serde](https://serde.rs/#data-formats)
 - [Setting up `#[derive(Serialize, Deserialize)]`](https://serde.rs/derive.html)
 - [Examples](https://serde.rs/examples.html)
-- [API documentation](https://docs.rs/serde)
+- [API documentation](https://docs.serde.rs/serde/)
 - [Release notes](https://github.com/serde-rs/serde/releases)
 
 ## Serde in action
 
 ```rust
-use serde::{Deserialize, Serialize};
+use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Point {

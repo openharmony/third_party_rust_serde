@@ -1,9 +1,6 @@
-#![allow(clippy::derive_partial_eq_without_eq, clippy::unreadable_literal)]
+#![allow(clippy::unreadable_literal)]
 #![cfg_attr(feature = "unstable", feature(never_type))]
 
-use fnv::FnvHasher;
-use serde_derive::Serialize;
-use serde_test::{assert_ser_tokens, assert_ser_tokens_error, Configure, Token};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::ffi::CString;
@@ -12,16 +9,21 @@ use std::num::Wrapping;
 use std::ops::Bound;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak as RcWeak};
-#[cfg(unix)]
-use std::str;
 use std::sync::atomic::{
     AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU8,
     AtomicUsize,
 };
+use std::sync::{Arc, Weak as ArcWeak};
+use std::time::{Duration, UNIX_EPOCH};
+
+#[cfg(unix)]
+use std::str;
 #[cfg(target_arch = "x86_64")]
 use std::sync::atomic::{AtomicI64, AtomicU64};
-use std::sync::{Arc, Mutex, RwLock, Weak as ArcWeak};
-use std::time::{Duration, UNIX_EPOCH};
+
+use fnv::FnvHasher;
+use serde::Serialize;
+use serde_test::{assert_ser_tokens, assert_ser_tokens_error, Configure, Token};
 
 #[macro_use]
 mod macros;
@@ -501,38 +503,6 @@ fn test_range_inclusive() {
 }
 
 #[test]
-fn test_range_from() {
-    assert_ser_tokens(
-        &(1u32..),
-        &[
-            Token::Struct {
-                name: "RangeFrom",
-                len: 1,
-            },
-            Token::Str("start"),
-            Token::U32(1),
-            Token::StructEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_range_to() {
-    assert_ser_tokens(
-        &(..2u32),
-        &[
-            Token::Struct {
-                name: "RangeTo",
-                len: 1,
-            },
-            Token::Str("end"),
-            Token::U32(2),
-            Token::StructEnd,
-        ],
-    );
-}
-
-#[test]
 fn test_bound() {
     assert_ser_tokens(
         &Bound::Unbounded::<()>,
@@ -830,14 +800,17 @@ fn test_never_result() {
 #[test]
 #[cfg(unix)]
 fn test_cannot_serialize_paths() {
-    use std::ffi::OsStr;
-    use std::os::unix::ffi::OsStrExt;
-
+    let path = unsafe { str::from_utf8_unchecked(b"Hello \xF0\x90\x80World") };
     assert_ser_tokens_error(
-        &Path::new(OsStr::from_bytes(b"Hello \xF0\x90\x80World")),
+        &Path::new(path),
         &[],
         "path contains invalid UTF-8 characters",
     );
+
+    let mut path_buf = PathBuf::new();
+    path_buf.push(path);
+
+    assert_ser_tokens_error(&path_buf, &[], "path contains invalid UTF-8 characters");
 }
 
 #[test]
@@ -876,40 +849,4 @@ fn test_integer128() {
     assert_ser_tokens_error(&1i128, &[], "i128 is not supported");
 
     assert_ser_tokens_error(&1u128, &[], "u128 is not supported");
-}
-
-#[test]
-fn test_refcell_dst() {
-    assert_ser_tokens(
-        &RefCell::new([true]) as &RefCell<[bool]>,
-        &[
-            Token::Seq { len: Some(1) },
-            Token::Bool(true),
-            Token::SeqEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_mutex_dst() {
-    assert_ser_tokens(
-        &Mutex::new([true]) as &Mutex<[bool]>,
-        &[
-            Token::Seq { len: Some(1) },
-            Token::Bool(true),
-            Token::SeqEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_rwlock_dst() {
-    assert_ser_tokens(
-        &RwLock::new([true]) as &RwLock<[bool]>,
-        &[
-            Token::Seq { len: Some(1) },
-            Token::Bool(true),
-            Token::SeqEnd,
-        ],
-    );
 }

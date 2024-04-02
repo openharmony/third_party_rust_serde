@@ -1,24 +1,23 @@
 [package]
 name = "serde_derive_internals"
-version = "0.29.0"
+version = "0.26.0" # remember to update html_root_url
 authors = ["Erick Tryzelaar <erick.tryzelaar@gmail.com>", "David Tolnay <dtolnay@gmail.com>"]
-description = "AST representation used by Serde derive macros. Unstable."
-documentation = "https://docs.rs/serde_derive_internals"
-exclude = ["build.rs"]
-homepage = "https://serde.rs"
-keywords = ["serde", "serialization"]
+rust-version = "1.31"
 license = "MIT OR Apache-2.0"
+description = "AST representation used by Serde derive macros. Unstable."
+homepage = "https://serde.rs"
 repository = "https://github.com/serde-rs/serde"
-rust-version = "1.56"
+documentation = "https://docs.rs/serde_derive_internals"
+keywords = ["serde", "serialization"]
+include = ["lib.rs", "src/**/*.rs", "LICENSE-APACHE", "LICENSE-MIT"]
 
 [lib]
 path = "lib.rs"
 
 [dependencies]
-proc-macro2 = { workspace = true }
-quote = { workspace = true }
-syn = { workspace = true, features = ["clone-impls", "derive", "parsing", "printing"] }
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "1.0.60", default-features = false, features = ["derive", "parsing", "printing", "clone-impls"] }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
-rustdoc-args = ["--generate-link-to-definition"]
