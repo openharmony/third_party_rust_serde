@@ -1,4 +1,4 @@
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::{Serialize, Deserialize};
 
 mod remote {
     pub struct S {

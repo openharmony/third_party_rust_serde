@@ -1,4 +1,3 @@
-#![allow(internal_features)]
 #![feature(lang_items, start)]
 #![no_std]
 
@@ -20,7 +19,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 
 //////////////////////////////////////////////////////////////////////////////
 
-use serde_derive::{Deserialize, Serialize};
+use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 struct Unit;
