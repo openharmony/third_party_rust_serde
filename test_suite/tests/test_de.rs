@@ -1,17 +1,25 @@
 #![allow(
     clippy::cast_lossless,
     clippy::decimal_literal_representation,
+    clippy::derive_partial_eq_without_eq,
     clippy::empty_enum,
     clippy::manual_assert,
     clippy::needless_pass_by_value,
+    clippy::uninlined_format_args,
     clippy::unreadable_literal
 )]
 #![cfg_attr(feature = "unstable", feature(never_type))]
 
+use fnv::FnvHasher;
+use serde::de::value::{F32Deserializer, F64Deserializer};
+use serde::de::{Deserialize, DeserializeOwned, Deserializer, IntoDeserializer};
+use serde_derive::Deserialize;
+use serde_test::{assert_de_tokens, Configure, Token};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::default::Default;
 use std::ffi::{CStr, CString, OsString};
 use std::fmt::Debug;
+use std::iter;
 use std::net;
 use std::num::{
     NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
@@ -24,16 +32,10 @@ use std::sync::atomic::{
     AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU8,
     AtomicUsize, Ordering,
 };
-use std::sync::{Arc, Weak as ArcWeak};
-use std::time::{Duration, UNIX_EPOCH};
-
 #[cfg(target_arch = "x86_64")]
 use std::sync::atomic::{AtomicI64, AtomicU64};
-
-use fnv::FnvHasher;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Deserializer};
-use serde_test::{assert_de_tokens, Configure, Token};
+use std::sync::{Arc, Weak as ArcWeak};
+use std::time::{Duration, UNIX_EPOCH};
 
 #[macro_use]
 mod macros;
@@ -42,6 +44,9 @@ mod macros;
 
 #[derive(Copy, Clone, PartialEq, Debug, Deserialize)]
 struct UnitStruct;
+
+#[derive(Copy, Clone, PartialEq, Debug, Deserialize)]
+struct GenericUnitStruct<const N: u8>;
 
 #[derive(PartialEq, Debug, Deserialize)]
 struct NewtypeStruct(i32);
@@ -197,12 +202,11 @@ fn assert_de_tokens_ignore(ignorable_tokens: &[Token]) {
     ]
     .into_iter()
     .chain(ignorable_tokens.iter().copied())
-    .chain(vec![Token::MapEnd].into_iter())
+    .chain(iter::once(Token::MapEnd))
     .collect();
 
-    let mut de = serde_test::Deserializer::new(&concated_tokens);
-    let base = IgnoreBase::deserialize(&mut de).unwrap();
-    assert_eq!(base, IgnoreBase { a: 1 });
+    let expected = IgnoreBase { a: 1 };
+    assert_de_tokens(&expected, &concated_tokens);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -830,6 +834,26 @@ fn test_f64() {
 }
 
 #[test]
+fn test_nan() {
+    let f32_deserializer = F32Deserializer::<serde::de::value::Error>::new;
+    let f64_deserializer = F64Deserializer::<serde::de::value::Error>::new;
+
+    let pos_f32_nan = f32_deserializer(f32::NAN.copysign(1.0));
+    let pos_f64_nan = f64_deserializer(f64::NAN.copysign(1.0));
+    assert!(f32::deserialize(pos_f32_nan).unwrap().is_sign_positive());
+    assert!(f32::deserialize(pos_f64_nan).unwrap().is_sign_positive());
+    assert!(f64::deserialize(pos_f32_nan).unwrap().is_sign_positive());
+    assert!(f64::deserialize(pos_f64_nan).unwrap().is_sign_positive());
+
+    let neg_f32_nan = f32_deserializer(f32::NAN.copysign(-1.0));
+    let neg_f64_nan = f64_deserializer(f64::NAN.copysign(-1.0));
+    assert!(f32::deserialize(neg_f32_nan).unwrap().is_sign_negative());
+    assert!(f32::deserialize(neg_f64_nan).unwrap().is_sign_negative());
+    assert!(f64::deserialize(neg_f32_nan).unwrap().is_sign_negative());
+    assert!(f64::deserialize(neg_f64_nan).unwrap().is_sign_negative());
+}
+
+#[test]
 fn test_char() {
     test('a', &[Token::Char('a')]);
     test('a', &[Token::Str("a")]);
@@ -879,6 +903,17 @@ fn test_unit() {
 fn test_unit_struct() {
     test(UnitStruct, &[Token::Unit]);
     test(UnitStruct, &[Token::UnitStruct { name: "UnitStruct" }]);
+}
+
+#[test]
+fn test_generic_unit_struct() {
+    test(GenericUnitStruct::<8>, &[Token::Unit]);
+    test(
+        GenericUnitStruct::<8>,
+        &[Token::UnitStruct {
+            name: "GenericUnitStruct",
+        }],
+    );
 }
 
 #[test]
@@ -1864,6 +1899,46 @@ fn test_range_inclusive() {
 }
 
 #[test]
+fn test_range_from() {
+    test(
+        1u32..,
+        &[
+            Token::Struct {
+                name: "RangeFrom",
+                len: 1,
+            },
+            Token::Str("start"),
+            Token::U32(1),
+            Token::StructEnd,
+        ],
+    );
+    test(
+        1u32..,
+        &[Token::Seq { len: Some(1) }, Token::U32(1), Token::SeqEnd],
+    );
+}
+
+#[test]
+fn test_range_to() {
+    test(
+        ..2u32,
+        &[
+            Token::Struct {
+                name: "RangeTo",
+                len: 1,
+            },
+            Token::Str("end"),
+            Token::U32(2),
+            Token::StructEnd,
+        ],
+    );
+    test(
+        ..2u32,
+        &[Token::Seq { len: Some(1) }, Token::U32(2), Token::SeqEnd],
+    );
+}
+
+#[test]
 fn test_bound() {
     test(
         Bound::Unbounded::<()>,
@@ -2243,39 +2318,34 @@ fn test_cstr() {
 
 #[test]
 fn test_atomics() {
-    fn test<L, A, T>(load: L, val: T, token: Token)
+    fn test<L, A, T>(load: L, val: T)
     where
         L: Fn(&A, Ordering) -> T,
         A: DeserializeOwned,
-        T: PartialEq + Debug,
+        T: PartialEq + Debug + Copy + for<'de> IntoDeserializer<'de>,
     {
-        let tokens = &[token];
-        let mut de = serde_test::Deserializer::new(tokens);
-        match A::deserialize(&mut de) {
+        match A::deserialize(val.into_deserializer()) {
             Ok(v) => {
                 let loaded = load(&v, Ordering::Relaxed);
                 assert_eq!(val, loaded);
             }
             Err(e) => panic!("tokens failed to deserialize: {}", e),
-        };
-        if de.remaining() > 0 {
-            panic!("{} remaining tokens", de.remaining());
         }
     }
 
-    test(AtomicBool::load, true, Token::Bool(true));
-    test(AtomicI8::load, -127, Token::I8(-127i8));
-    test(AtomicI16::load, -510, Token::I16(-510i16));
-    test(AtomicI32::load, -131072, Token::I32(-131072i32));
-    test(AtomicIsize::load, -131072isize, Token::I32(-131072));
-    test(AtomicU8::load, 127, Token::U8(127u8));
-    test(AtomicU16::load, 510u16, Token::U16(510u16));
-    test(AtomicU32::load, 131072u32, Token::U32(131072u32));
-    test(AtomicUsize::load, 131072usize, Token::U32(131072));
+    test(AtomicBool::load, true);
+    test(AtomicI8::load, -127i8);
+    test(AtomicI16::load, -510i16);
+    test(AtomicI32::load, -131072i32);
+    test(AtomicIsize::load, -131072isize);
+    test(AtomicU8::load, 127u8);
+    test(AtomicU16::load, 510u16);
+    test(AtomicU32::load, 131072u32);
+    test(AtomicUsize::load, 131072usize);
 
     #[cfg(target_arch = "x86_64")]
     {
-        test(AtomicI64::load, -8589934592, Token::I64(-8589934592));
-        test(AtomicU64::load, 8589934592u64, Token::U64(8589934592));
+        test(AtomicI64::load, -8589934592i64);
+        test(AtomicU64::load, 8589934592u64);
     }
 }

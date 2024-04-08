@@ -19,8 +19,8 @@ ohos_cargo_crate("lib") {
   crate_root = "src/lib.rs"
 
   sources = [ "src/lib.rs" ]
-  edition = "2015"
-  cargo_pkg_version = "1.0.136"
+  edition = "2018"
+  cargo_pkg_version = "1.0.195"
   cargo_pkg_authors = "Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>"
   cargo_pkg_name = "serde"
   cargo_pkg_description = "A generic serialization/deserialization framework"
