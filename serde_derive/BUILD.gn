@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Huawei Device Co., Ltd.
+# Copyright (c) 2025 Huawei Device Co., Ltd.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,14 +14,16 @@
 import("//build/ohos.gni")
 
 ohos_cargo_crate("lib") {
-  crate_name = "serde"
-  crate_type = "rlib"
+  crate_name = "serde_derive"
+  crate_type = "proc-macro"
   crate_root = "src/lib.rs"
 
   sources = [ "src/lib.rs" ]
 
   deps = [
-    "../serde_derive:lib(${host_toolchain})"
+    "//third_party/rust/crates/quote:lib",
+    "//third_party/rust/crates/syn:lib",
+    "//third_party/rust/crates/proc-macro2:lib",
   ]
   edition = "2018"
   cargo_pkg_version = "1.0.195"
@@ -31,6 +33,5 @@ ohos_cargo_crate("lib") {
   features = [
     "default",
     "std",
-    "serde_derive",
   ]
 }
