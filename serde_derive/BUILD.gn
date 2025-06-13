@@ -21,9 +21,12 @@ ohos_cargo_crate("lib") {
   sources = [ "src/lib.rs" ]
 
   deps = [
-    "//third_party/rust/crates/quote:lib",
-    "//third_party/rust/crates/syn:lib",
-    "//third_party/rust/crates/proc-macro2:lib",
+    "//third_party/rust/crates/proc-macro2:lib"
+  ]
+
+  external_deps = [
+    "rust_syn:lib",
+    "rust_quote:lib"
   ]
   edition = "2018"
   cargo_pkg_version = "1.0.195"
