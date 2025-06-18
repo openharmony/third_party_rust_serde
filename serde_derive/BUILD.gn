@@ -22,9 +22,15 @@ ohos_cargo_crate("lib") {
 
   deps = [
     "//third_party/rust/crates/quote:lib",
-    "//third_party/rust/crates/syn:lib",
     "//third_party/rust/crates/proc-macro2:lib",
   ]
+
+  if (defined(global_parts_info) &&
+      !defined(global_parts_info.third_party_rust_syn)) {
+    deps += [ "//third_party/rust/crates/syn:lib" ]
+  } else {
+    external_deps += [ "rust_syn:lib" ]
+  }
   edition = "2018"
   cargo_pkg_version = "1.0.195"
   cargo_pkg_authors = "Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>"
