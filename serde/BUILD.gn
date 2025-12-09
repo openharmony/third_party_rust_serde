@@ -33,4 +33,7 @@ ohos_cargo_crate("lib") {
     "std",
     "serde_derive",
   ]
+  module_output_extension = ".rlib"
+  part_name = "rust_serde"
+  subsystem_name = "thirdparty"
 }
