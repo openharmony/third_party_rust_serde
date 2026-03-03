@@ -782,7 +782,7 @@ fn test_unknown_field_rename_enum() {
             variant: "SailorMoon",
             len: 3,
         }],
-        "unknown variant `SailorMoon`, expected `sailor_moon`",
+        "unknown variant `SailorMoon`, expected `sailor_moon` or `usagi_tsukino`",
     );
 
     assert_de_tokens_error::<AliasEnum>(
@@ -1608,623 +1608,6 @@ fn test_collect_other() {
 }
 
 #[test]
-fn test_unknown_field_in_flatten() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Outer {
-        dummy: String,
-        #[serde(flatten)]
-        inner: Inner,
-    }
-
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct Inner {
-        foo: HashMap<String, u32>,
-    }
-
-    assert_de_tokens_error::<Outer>(
-        &[
-            Token::Struct {
-                name: "Outer",
-                len: 1,
-            },
-            Token::Str("dummy"),
-            Token::Str("23"),
-            Token::Str("foo"),
-            Token::Map { len: None },
-            Token::Str("a"),
-            Token::U32(1),
-            Token::Str("b"),
-            Token::U32(2),
-            Token::MapEnd,
-            Token::Str("bar"),
-            Token::U32(23),
-            Token::StructEnd,
-        ],
-        "unknown field `bar`",
-    );
-}
-
-#[test]
-fn test_complex_flatten() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct Outer {
-        y: u32,
-        #[serde(flatten)]
-        first: First,
-        #[serde(flatten)]
-        second: Second,
-        z: u32,
-    }
-
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct First {
-        a: u32,
-        b: bool,
-        c: Vec<String>,
-        d: String,
-        e: Option<u64>,
-    }
-
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct Second {
-        f: u32,
-    }
-
-    assert_de_tokens(
-        &Outer {
-            y: 0,
-            first: First {
-                a: 1,
-                b: true,
-                c: vec!["a".into(), "b".into()],
-                d: "c".into(),
-                e: Some(2),
-            },
-            second: Second { f: 3 },
-            z: 4,
-        },
-        &[
-            Token::Map { len: None },
-            Token::Str("y"),
-            Token::U32(0),
-            Token::Str("a"),
-            Token::U32(1),
-            Token::Str("b"),
-            Token::Bool(true),
-            Token::Str("c"),
-            Token::Seq { len: Some(2) },
-            Token::Str("a"),
-            Token::Str("b"),
-            Token::SeqEnd,
-            Token::Str("d"),
-            Token::Str("c"),
-            Token::Str("e"),
-            Token::U64(2),
-            Token::Str("f"),
-            Token::U32(3),
-            Token::Str("z"),
-            Token::U32(4),
-            Token::MapEnd,
-        ],
-    );
-
-    assert_ser_tokens(
-        &Outer {
-            y: 0,
-            first: First {
-                a: 1,
-                b: true,
-                c: vec!["a".into(), "b".into()],
-                d: "c".into(),
-                e: Some(2),
-            },
-            second: Second { f: 3 },
-            z: 4,
-        },
-        &[
-            Token::Map { len: None },
-            Token::Str("y"),
-            Token::U32(0),
-            Token::Str("a"),
-            Token::U32(1),
-            Token::Str("b"),
-            Token::Bool(true),
-            Token::Str("c"),
-            Token::Seq { len: Some(2) },
-            Token::Str("a"),
-            Token::Str("b"),
-            Token::SeqEnd,
-            Token::Str("d"),
-            Token::Str("c"),
-            Token::Str("e"),
-            Token::Some,
-            Token::U64(2),
-            Token::Str("f"),
-            Token::U32(3),
-            Token::Str("z"),
-            Token::U32(4),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_flatten_map_twice() {
-    #[derive(Debug, PartialEq, Deserialize)]
-    struct Outer {
-        #[serde(flatten)]
-        first: BTreeMap<String, String>,
-        #[serde(flatten)]
-        between: Inner,
-        #[serde(flatten)]
-        second: BTreeMap<String, String>,
-    }
-
-    #[derive(Debug, PartialEq, Deserialize)]
-    struct Inner {
-        y: String,
-    }
-
-    assert_de_tokens(
-        &Outer {
-            first: {
-                let mut first = BTreeMap::new();
-                first.insert("x".to_owned(), "X".to_owned());
-                first.insert("y".to_owned(), "Y".to_owned());
-                first
-            },
-            between: Inner { y: "Y".to_owned() },
-            second: {
-                let mut second = BTreeMap::new();
-                second.insert("x".to_owned(), "X".to_owned());
-                second
-            },
-        },
-        &[
-            Token::Map { len: None },
-            Token::Str("x"),
-            Token::Str("X"),
-            Token::Str("y"),
-            Token::Str("Y"),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_flatten_unit() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct Response<T> {
-        #[serde(flatten)]
-        data: T,
-        status: usize,
-    }
-
-    assert_tokens(
-        &Response {
-            data: (),
-            status: 0,
-        },
-        &[
-            Token::Map { len: None },
-            Token::Str("status"),
-            Token::U64(0),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_flatten_unsupported_type() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct Outer {
-        outer: String,
-        #[serde(flatten)]
-        inner: String,
-    }
-
-    assert_ser_tokens_error(
-        &Outer {
-            outer: "foo".into(),
-            inner: "bar".into(),
-        },
-        &[
-            Token::Map { len: None },
-            Token::Str("outer"),
-            Token::Str("foo"),
-        ],
-        "can only flatten structs and maps (got a string)",
-    );
-    assert_de_tokens_error::<Outer>(
-        &[
-            Token::Map { len: None },
-            Token::Str("outer"),
-            Token::Str("foo"),
-            Token::Str("a"),
-            Token::Str("b"),
-            Token::MapEnd,
-        ],
-        "can only flatten structs and maps",
-    );
-}
-
-#[test]
-fn test_non_string_keys() {
-    #[derive(Debug, PartialEq, Serialize, Deserialize)]
-    struct TestStruct {
-        name: String,
-        age: u32,
-        #[serde(flatten)]
-        mapping: HashMap<u32, u32>,
-    }
-
-    let mut mapping = HashMap::new();
-    mapping.insert(0, 42);
-    assert_tokens(
-        &TestStruct {
-            name: "peter".into(),
-            age: 3,
-            mapping,
-        },
-        &[
-            Token::Map { len: None },
-            Token::Str("name"),
-            Token::Str("peter"),
-            Token::Str("age"),
-            Token::U32(3),
-            Token::U32(0),
-            Token::U32(42),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_lifetime_propagation_for_flatten() {
-    #[derive(Deserialize, Serialize, Debug, PartialEq)]
-    struct A<T> {
-        #[serde(flatten)]
-        t: T,
-    }
-
-    #[derive(Deserialize, Serialize, Debug, PartialEq)]
-    struct B<'a> {
-        #[serde(flatten, borrow)]
-        t: HashMap<&'a str, u32>,
-    }
-
-    #[derive(Deserialize, Serialize, Debug, PartialEq)]
-    struct C<'a> {
-        #[serde(flatten, borrow)]
-        t: HashMap<&'a [u8], u32>,
-    }
-
-    let mut owned_map = HashMap::new();
-    owned_map.insert("x".to_string(), 42u32);
-    assert_tokens(
-        &A { t: owned_map },
-        &[
-            Token::Map { len: None },
-            Token::Str("x"),
-            Token::U32(42),
-            Token::MapEnd,
-        ],
-    );
-
-    let mut borrowed_map = HashMap::new();
-    borrowed_map.insert("x", 42u32);
-    assert_ser_tokens(
-        &B {
-            t: borrowed_map.clone(),
-        },
-        &[
-            Token::Map { len: None },
-            Token::BorrowedStr("x"),
-            Token::U32(42),
-            Token::MapEnd,
-        ],
-    );
-
-    assert_de_tokens(
-        &B { t: borrowed_map },
-        &[
-            Token::Map { len: None },
-            Token::BorrowedStr("x"),
-            Token::U32(42),
-            Token::MapEnd,
-        ],
-    );
-
-    let mut borrowed_map = HashMap::new();
-    borrowed_map.insert(&b"x"[..], 42u32);
-    assert_ser_tokens(
-        &C {
-            t: borrowed_map.clone(),
-        },
-        &[
-            Token::Map { len: None },
-            Token::Seq { len: Some(1) },
-            Token::U8(120),
-            Token::SeqEnd,
-            Token::U32(42),
-            Token::MapEnd,
-        ],
-    );
-
-    assert_de_tokens(
-        &C { t: borrowed_map },
-        &[
-            Token::Map { len: None },
-            Token::BorrowedBytes(b"x"),
-            Token::U32(42),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_externally_tagged_enum_containing_flatten() {
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    enum Data {
-        A {
-            a: i32,
-            #[serde(flatten)]
-            flat: Flat,
-        },
-    }
-
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct Flat {
-        b: i32,
-    }
-
-    let data = Data::A {
-        a: 0,
-        flat: Flat { b: 0 },
-    };
-
-    assert_tokens(
-        &data,
-        &[
-            Token::NewtypeVariant {
-                name: "Data",
-                variant: "A",
-            },
-            Token::Map { len: None },
-            Token::Str("a"),
-            Token::I32(0),
-            Token::Str("b"),
-            Token::I32(0),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_internally_tagged_enum_with_skipped_conflict() {
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    #[serde(tag = "t")]
-    enum Data {
-        A,
-        #[serde(skip)]
-        #[allow(dead_code)]
-        B {
-            t: String,
-        },
-        C {
-            #[serde(default, skip)]
-            t: String,
-        },
-    }
-
-    let data = Data::C { t: String::new() };
-
-    assert_tokens(
-        &data,
-        &[
-            Token::Struct {
-                name: "Data",
-                len: 1,
-            },
-            Token::Str("t"),
-            Token::Str("C"),
-            Token::StructEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_internally_tagged_enum_containing_flatten() {
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    #[serde(tag = "t")]
-    enum Data {
-        A {
-            a: i32,
-            #[serde(flatten)]
-            flat: Flat,
-        },
-    }
-
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct Flat {
-        b: i32,
-    }
-
-    let data = Data::A {
-        a: 0,
-        flat: Flat { b: 0 },
-    };
-
-    assert_tokens(
-        &data,
-        &[
-            Token::Map { len: None },
-            Token::Str("t"),
-            Token::Str("A"),
-            Token::Str("a"),
-            Token::I32(0),
-            Token::Str("b"),
-            Token::I32(0),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_internally_tagged_enum_new_type_with_unit() {
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    #[serde(tag = "t")]
-    enum Data {
-        A(()),
-    }
-
-    assert_tokens(
-        &Data::A(()),
-        &[
-            Token::Map { len: Some(1) },
-            Token::Str("t"),
-            Token::Str("A"),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_adjacently_tagged_enum_bytes() {
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    #[serde(tag = "t", content = "c")]
-    enum Data {
-        A { a: i32 },
-    }
-
-    let data = Data::A { a: 0 };
-
-    assert_tokens(
-        &data,
-        &[
-            Token::Struct {
-                name: "Data",
-                len: 2,
-            },
-            Token::Str("t"),
-            Token::UnitVariant {
-                name: "Data",
-                variant: "A",
-            },
-            Token::Str("c"),
-            Token::Struct { name: "A", len: 1 },
-            Token::Str("a"),
-            Token::I32(0),
-            Token::StructEnd,
-            Token::StructEnd,
-        ],
-    );
-
-    assert_de_tokens(
-        &data,
-        &[
-            Token::Struct {
-                name: "Data",
-                len: 2,
-            },
-            Token::Bytes(b"t"),
-            Token::UnitVariant {
-                name: "Data",
-                variant: "A",
-            },
-            Token::Bytes(b"c"),
-            Token::Struct { name: "A", len: 1 },
-            Token::Str("a"),
-            Token::I32(0),
-            Token::StructEnd,
-            Token::StructEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_adjacently_tagged_enum_containing_flatten() {
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    #[serde(tag = "t", content = "c")]
-    enum Data {
-        A {
-            a: i32,
-            #[serde(flatten)]
-            flat: Flat,
-        },
-    }
-
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct Flat {
-        b: i32,
-    }
-
-    let data = Data::A {
-        a: 0,
-        flat: Flat { b: 0 },
-    };
-
-    assert_tokens(
-        &data,
-        &[
-            Token::Struct {
-                name: "Data",
-                len: 2,
-            },
-            Token::Str("t"),
-            Token::UnitVariant {
-                name: "Data",
-                variant: "A",
-            },
-            Token::Str("c"),
-            Token::Map { len: None },
-            Token::Str("a"),
-            Token::I32(0),
-            Token::Str("b"),
-            Token::I32(0),
-            Token::MapEnd,
-            Token::StructEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_untagged_enum_containing_flatten() {
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    #[serde(untagged)]
-    enum Data {
-        A {
-            a: i32,
-            #[serde(flatten)]
-            flat: Flat,
-        },
-    }
-
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct Flat {
-        b: i32,
-    }
-
-    let data = Data::A {
-        a: 0,
-        flat: Flat { b: 0 },
-    };
-
-    assert_tokens(
-        &data,
-        &[
-            Token::Map { len: None },
-            Token::Str("a"),
-            Token::I32(0),
-            Token::Str("b"),
-            Token::I32(0),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
 fn test_partially_untagged_enum() {
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
     enum Exp {
@@ -2411,133 +1794,6 @@ fn test_partially_untagged_internally_tagged_enum() {
 }
 
 #[test]
-fn test_partially_untagged_adjacently_tagged_enum() {
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    #[serde(tag = "t", content = "c")]
-    enum Data {
-        A(u32),
-        B,
-        #[serde(untagged)]
-        Var(u32),
-    }
-
-    let data = Data::A(7);
-
-    assert_de_tokens(
-        &data,
-        &[
-            Token::Map { len: None },
-            Token::Str("t"),
-            Token::Str("A"),
-            Token::Str("c"),
-            Token::U32(7),
-            Token::MapEnd,
-        ],
-    );
-
-    let data = Data::Var(42);
-
-    assert_de_tokens(&data, &[Token::U32(42)]);
-
-    // TODO test error output
-}
-
-#[test]
-fn test_flatten_option() {
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct Outer {
-        #[serde(flatten)]
-        inner1: Option<Inner1>,
-        #[serde(flatten)]
-        inner2: Option<Inner2>,
-    }
-
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct Inner1 {
-        inner1: i32,
-    }
-
-    #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct Inner2 {
-        inner2: i32,
-    }
-
-    assert_tokens(
-        &Outer {
-            inner1: Some(Inner1 { inner1: 1 }),
-            inner2: Some(Inner2 { inner2: 2 }),
-        },
-        &[
-            Token::Map { len: None },
-            Token::Str("inner1"),
-            Token::I32(1),
-            Token::Str("inner2"),
-            Token::I32(2),
-            Token::MapEnd,
-        ],
-    );
-
-    assert_tokens(
-        &Outer {
-            inner1: Some(Inner1 { inner1: 1 }),
-            inner2: None,
-        },
-        &[
-            Token::Map { len: None },
-            Token::Str("inner1"),
-            Token::I32(1),
-            Token::MapEnd,
-        ],
-    );
-
-    assert_tokens(
-        &Outer {
-            inner1: None,
-            inner2: Some(Inner2 { inner2: 2 }),
-        },
-        &[
-            Token::Map { len: None },
-            Token::Str("inner2"),
-            Token::I32(2),
-            Token::MapEnd,
-        ],
-    );
-
-    assert_tokens(
-        &Outer {
-            inner1: None,
-            inner2: None,
-        },
-        &[Token::Map { len: None }, Token::MapEnd],
-    );
-}
-
-#[test]
-fn test_flatten_ignored_any() {
-    #[derive(Deserialize, PartialEq, Debug)]
-    struct Outer {
-        #[serde(flatten)]
-        inner: IgnoredAny,
-    }
-
-    assert_de_tokens(
-        &Outer { inner: IgnoredAny },
-        &[Token::Map { len: None }, Token::MapEnd],
-    );
-
-    assert_de_tokens(
-        &Outer { inner: IgnoredAny },
-        &[
-            Token::Struct {
-                name: "DoNotMatter",
-                len: 0,
-            },
-            Token::StructEnd,
-        ],
-    );
-}
-
-#[test]
 fn test_transparent_struct() {
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
     #[serde(transparent)]
@@ -2573,152 +1829,6 @@ fn test_transparent_tuple_struct() {
     );
 
     assert_tokens(&Transparent(false, 1, false, PhantomData), &[Token::U32(1)]);
-}
-
-#[test]
-fn test_internally_tagged_unit_enum_with_unknown_fields() {
-    #[derive(Deserialize, PartialEq, Debug)]
-    #[serde(tag = "t")]
-    enum Data {
-        A,
-    }
-
-    let data = Data::A;
-
-    assert_de_tokens(
-        &data,
-        &[
-            Token::Map { len: None },
-            Token::Str("t"),
-            Token::Str("A"),
-            Token::Str("b"),
-            Token::I32(0),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_flatten_any_after_flatten_struct() {
-    #[derive(PartialEq, Debug)]
-    struct Any;
-
-    impl<'de> Deserialize<'de> for Any {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
-        {
-            struct AnyVisitor;
-
-            impl<'de> Visitor<'de> for AnyVisitor {
-                type Value = Any;
-
-                fn expecting(&self, _formatter: &mut fmt::Formatter) -> fmt::Result {
-                    unimplemented!()
-                }
-
-                fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
-                where
-                    M: MapAccess<'de>,
-                {
-                    while let Some((Any, Any)) = map.next_entry()? {}
-                    Ok(Any)
-                }
-            }
-
-            deserializer.deserialize_any(AnyVisitor)
-        }
-    }
-
-    #[derive(Deserialize, PartialEq, Debug)]
-    struct Outer {
-        #[serde(flatten)]
-        inner: Inner,
-        #[serde(flatten)]
-        extra: Any,
-    }
-
-    #[derive(Deserialize, PartialEq, Debug)]
-    struct Inner {
-        inner: i32,
-    }
-
-    let s = Outer {
-        inner: Inner { inner: 0 },
-        extra: Any,
-    };
-
-    assert_de_tokens(
-        &s,
-        &[
-            Token::Map { len: None },
-            Token::Str("inner"),
-            Token::I32(0),
-            Token::MapEnd,
-        ],
-    );
-}
-
-#[test]
-fn test_alias_in_flatten_context() {
-    #[derive(Debug, PartialEq, Deserialize)]
-    struct Outer {
-        #[serde(flatten)]
-        a: AliasStruct,
-        b: i32,
-    }
-
-    assert_de_tokens(
-        &Outer {
-            a: AliasStruct {
-                a1: 1,
-                a2: 2,
-                a4: 4,
-            },
-            b: 7,
-        },
-        &[
-            Token::Struct {
-                name: "Outer",
-                len: 4,
-            },
-            Token::Str("a1"),
-            Token::I32(1),
-            Token::Str("a2"),
-            Token::I32(2),
-            Token::Str("a5"),
-            Token::I32(4),
-            Token::Str("b"),
-            Token::I32(7),
-            Token::StructEnd,
-        ],
-    );
-
-    assert_de_tokens(
-        &Outer {
-            a: AliasStruct {
-                a1: 1,
-                a2: 2,
-                a4: 4,
-            },
-            b: 7,
-        },
-        &[
-            Token::Struct {
-                name: "Outer",
-                len: 4,
-            },
-            Token::Str("a1"),
-            Token::I32(1),
-            Token::Str("a2"),
-            Token::I32(2),
-            Token::Str("a6"),
-            Token::I32(4),
-            Token::Str("b"),
-            Token::I32(7),
-            Token::StructEnd,
-        ],
-    );
 }
 
 #[test]
@@ -2786,65 +1896,6 @@ fn test_expecting_message_externally_tagged_enum() {
 }
 
 #[test]
-fn test_expecting_message_internally_tagged_enum() {
-    #[derive(Deserialize)]
-    #[serde(tag = "tag")]
-    #[serde(expecting = "something strange...")]
-    enum Enum {
-        InternallyTagged,
-    }
-
-    assert_de_tokens_error::<Enum>(
-        &[Token::Str("InternallyTagged")],
-        r#"invalid type: string "InternallyTagged", expected something strange..."#,
-    );
-
-    // Check that #[serde(expecting = "...")] doesn't affect variant identifier error message
-    assert_de_tokens_error::<Enum>(
-        &[Token::Map { len: None }, Token::Str("tag"), Token::Unit],
-        "invalid type: unit value, expected variant identifier",
-    );
-}
-
-#[test]
-fn test_expecting_message_adjacently_tagged_enum() {
-    #[derive(Deserialize)]
-    #[serde(tag = "tag", content = "content")]
-    #[serde(expecting = "something strange...")]
-    enum Enum {
-        AdjacentlyTagged,
-    }
-
-    assert_de_tokens_error::<Enum>(
-        &[Token::Str("AdjacentlyTagged")],
-        r#"invalid type: string "AdjacentlyTagged", expected something strange..."#,
-    );
-
-    assert_de_tokens_error::<Enum>(
-        &[Token::Map { len: None }, Token::Unit],
-        r#"invalid type: unit value, expected "tag", "content", or other ignored fields"#,
-    );
-
-    // Check that #[serde(expecting = "...")] doesn't affect variant identifier error message
-    assert_de_tokens_error::<Enum>(
-        &[Token::Map { len: None }, Token::Str("tag"), Token::Unit],
-        "invalid type: unit value, expected variant of enum Enum",
-    );
-}
-
-#[test]
-fn test_expecting_message_untagged_tagged_enum() {
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    #[serde(expecting = "something strange...")]
-    enum Enum {
-        Untagged,
-    }
-
-    assert_de_tokens_error::<Enum>(&[Token::Str("Untagged")], "something strange...");
-}
-
-#[test]
 fn test_expecting_message_identifier_enum() {
     #[derive(Deserialize)]
     #[serde(field_identifier)]
@@ -2894,12 +1945,704 @@ fn test_expecting_message_identifier_enum() {
 mod flatten {
     use super::*;
 
+    #[test]
+    fn complex() {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Outer {
+            y: u32,
+            #[serde(flatten)]
+            first: First,
+            #[serde(flatten)]
+            second: Second,
+            z: u32,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct First {
+            a: u32,
+            b: bool,
+            c: Vec<String>,
+            d: String,
+            e: Option<u64>,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Second {
+            f: u32,
+        }
+
+        assert_de_tokens(
+            &Outer {
+                y: 0,
+                first: First {
+                    a: 1,
+                    b: true,
+                    c: vec!["a".into(), "b".into()],
+                    d: "c".into(),
+                    e: Some(2),
+                },
+                second: Second { f: 3 },
+                z: 4,
+            },
+            &[
+                Token::Map { len: None },
+                Token::Str("y"),
+                Token::U32(0),
+                Token::Str("a"),
+                Token::U32(1),
+                Token::Str("b"),
+                Token::Bool(true),
+                Token::Str("c"),
+                Token::Seq { len: Some(2) },
+                Token::Str("a"),
+                Token::Str("b"),
+                Token::SeqEnd,
+                Token::Str("d"),
+                Token::Str("c"),
+                Token::Str("e"),
+                Token::U64(2),
+                Token::Str("f"),
+                Token::U32(3),
+                Token::Str("z"),
+                Token::U32(4),
+                Token::MapEnd,
+            ],
+        );
+
+        assert_ser_tokens(
+            &Outer {
+                y: 0,
+                first: First {
+                    a: 1,
+                    b: true,
+                    c: vec!["a".into(), "b".into()],
+                    d: "c".into(),
+                    e: Some(2),
+                },
+                second: Second { f: 3 },
+                z: 4,
+            },
+            &[
+                Token::Map { len: None },
+                Token::Str("y"),
+                Token::U32(0),
+                Token::Str("a"),
+                Token::U32(1),
+                Token::Str("b"),
+                Token::Bool(true),
+                Token::Str("c"),
+                Token::Seq { len: Some(2) },
+                Token::Str("a"),
+                Token::Str("b"),
+                Token::SeqEnd,
+                Token::Str("d"),
+                Token::Str("c"),
+                Token::Str("e"),
+                Token::Some,
+                Token::U64(2),
+                Token::Str("f"),
+                Token::U32(3),
+                Token::Str("z"),
+                Token::U32(4),
+                Token::MapEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn map_twice() {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct Outer {
+            #[serde(flatten)]
+            first: BTreeMap<String, String>,
+            #[serde(flatten)]
+            between: Inner,
+            #[serde(flatten)]
+            second: BTreeMap<String, String>,
+        }
+
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct Inner {
+            y: String,
+        }
+
+        assert_de_tokens(
+            &Outer {
+                first: {
+                    let mut first = BTreeMap::new();
+                    first.insert("x".to_owned(), "X".to_owned());
+                    first.insert("y".to_owned(), "Y".to_owned());
+                    first
+                },
+                between: Inner { y: "Y".to_owned() },
+                second: {
+                    let mut second = BTreeMap::new();
+                    second.insert("x".to_owned(), "X".to_owned());
+                    second
+                },
+            },
+            &[
+                Token::Map { len: None },
+                Token::Str("x"),
+                Token::Str("X"),
+                Token::Str("y"),
+                Token::Str("Y"),
+                Token::MapEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn unsupported_type() {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Outer {
+            outer: String,
+            #[serde(flatten)]
+            inner: String,
+        }
+
+        assert_ser_tokens_error(
+            &Outer {
+                outer: "foo".into(),
+                inner: "bar".into(),
+            },
+            &[
+                Token::Map { len: None },
+                Token::Str("outer"),
+                Token::Str("foo"),
+            ],
+            "can only flatten structs and maps (got a string)",
+        );
+        assert_de_tokens_error::<Outer>(
+            &[
+                Token::Map { len: None },
+                Token::Str("outer"),
+                Token::Str("foo"),
+                Token::Str("a"),
+                Token::Str("b"),
+                Token::MapEnd,
+            ],
+            "can only flatten structs and maps",
+        );
+    }
+
+    #[test]
+    fn unknown_field() {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Outer {
+            dummy: String,
+            #[serde(flatten)]
+            inner: Inner,
+        }
+
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct Inner {
+            foo: HashMap<String, u32>,
+        }
+
+        assert_de_tokens_error::<Outer>(
+            &[
+                Token::Struct {
+                    name: "Outer",
+                    len: 1,
+                },
+                Token::Str("dummy"),
+                Token::Str("23"),
+                Token::Str("foo"),
+                Token::Map { len: None },
+                Token::Str("a"),
+                Token::U32(1),
+                Token::Str("b"),
+                Token::U32(2),
+                Token::MapEnd,
+                Token::Str("bar"),
+                Token::U32(23),
+                Token::StructEnd,
+            ],
+            "unknown field `bar`",
+        );
+    }
+
+    #[test]
+    fn non_string_keys() {
+        #[derive(Debug, PartialEq, Serialize, Deserialize)]
+        struct TestStruct {
+            name: String,
+            age: u32,
+            #[serde(flatten)]
+            mapping: HashMap<u32, u32>,
+        }
+
+        let mut mapping = HashMap::new();
+        mapping.insert(0, 42);
+        assert_tokens(
+            &TestStruct {
+                name: "peter".into(),
+                age: 3,
+                mapping,
+            },
+            &[
+                Token::Map { len: None },
+                Token::Str("name"),
+                Token::Str("peter"),
+                Token::Str("age"),
+                Token::U32(3),
+                Token::U32(0),
+                Token::U32(42),
+                Token::MapEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn lifetime_propagation() {
+        #[derive(Deserialize, Serialize, Debug, PartialEq)]
+        struct A<T> {
+            #[serde(flatten)]
+            t: T,
+        }
+
+        #[derive(Deserialize, Serialize, Debug, PartialEq)]
+        struct B<'a> {
+            #[serde(flatten, borrow)]
+            t: HashMap<&'a str, u32>,
+        }
+
+        #[derive(Deserialize, Serialize, Debug, PartialEq)]
+        struct C<'a> {
+            #[serde(flatten, borrow)]
+            t: HashMap<&'a [u8], u32>,
+        }
+
+        let mut owned_map = HashMap::new();
+        owned_map.insert("x".to_string(), 42u32);
+        assert_tokens(
+            &A { t: owned_map },
+            &[
+                Token::Map { len: None },
+                Token::Str("x"),
+                Token::U32(42),
+                Token::MapEnd,
+            ],
+        );
+
+        let mut borrowed_map = HashMap::new();
+        borrowed_map.insert("x", 42u32);
+        assert_ser_tokens(
+            &B {
+                t: borrowed_map.clone(),
+            },
+            &[
+                Token::Map { len: None },
+                Token::BorrowedStr("x"),
+                Token::U32(42),
+                Token::MapEnd,
+            ],
+        );
+
+        assert_de_tokens(
+            &B { t: borrowed_map },
+            &[
+                Token::Map { len: None },
+                Token::BorrowedStr("x"),
+                Token::U32(42),
+                Token::MapEnd,
+            ],
+        );
+
+        let mut borrowed_map = HashMap::new();
+        borrowed_map.insert(&b"x"[..], 42u32);
+        assert_ser_tokens(
+            &C {
+                t: borrowed_map.clone(),
+            },
+            &[
+                Token::Map { len: None },
+                Token::Seq { len: Some(1) },
+                Token::U8(120),
+                Token::SeqEnd,
+                Token::U32(42),
+                Token::MapEnd,
+            ],
+        );
+
+        assert_de_tokens(
+            &C { t: borrowed_map },
+            &[
+                Token::Map { len: None },
+                Token::BorrowedBytes(b"x"),
+                Token::U32(42),
+                Token::MapEnd,
+            ],
+        );
+    }
+
+    // Regression test for https://github.com/serde-rs/serde/issues/1904
+    #[test]
+    fn enum_tuple_and_struct() {
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        enum Outer {
+            Tuple(f64, i32),
+            Flatten {
+                #[serde(flatten)]
+                nested: Nested,
+            },
+        }
+
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct Nested {
+            a: i32,
+            b: i32,
+        }
+
+        assert_tokens(
+            &Outer::Tuple(1.2, 3),
+            &[
+                Token::TupleVariant {
+                    name: "Outer",
+                    variant: "Tuple",
+                    len: 2,
+                },
+                Token::F64(1.2),
+                Token::I32(3),
+                Token::TupleVariantEnd,
+            ],
+        );
+        assert_tokens(
+            &Outer::Flatten {
+                nested: Nested { a: 1, b: 2 },
+            },
+            &[
+                Token::NewtypeVariant {
+                    name: "Outer",
+                    variant: "Flatten",
+                },
+                Token::Map { len: None },
+                Token::Str("a"),
+                Token::I32(1),
+                Token::Str("b"),
+                Token::I32(2),
+                Token::MapEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn option() {
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct Outer {
+            #[serde(flatten)]
+            inner1: Option<Inner1>,
+            #[serde(flatten)]
+            inner2: Option<Inner2>,
+        }
+
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct Inner1 {
+            inner1: i32,
+        }
+
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct Inner2 {
+            inner2: i32,
+        }
+
+        assert_tokens(
+            &Outer {
+                inner1: Some(Inner1 { inner1: 1 }),
+                inner2: Some(Inner2 { inner2: 2 }),
+            },
+            &[
+                Token::Map { len: None },
+                Token::Str("inner1"),
+                Token::I32(1),
+                Token::Str("inner2"),
+                Token::I32(2),
+                Token::MapEnd,
+            ],
+        );
+
+        assert_tokens(
+            &Outer {
+                inner1: Some(Inner1 { inner1: 1 }),
+                inner2: None,
+            },
+            &[
+                Token::Map { len: None },
+                Token::Str("inner1"),
+                Token::I32(1),
+                Token::MapEnd,
+            ],
+        );
+
+        assert_tokens(
+            &Outer {
+                inner1: None,
+                inner2: Some(Inner2 { inner2: 2 }),
+            },
+            &[
+                Token::Map { len: None },
+                Token::Str("inner2"),
+                Token::I32(2),
+                Token::MapEnd,
+            ],
+        );
+
+        assert_tokens(
+            &Outer {
+                inner1: None,
+                inner2: None,
+            },
+            &[Token::Map { len: None }, Token::MapEnd],
+        );
+    }
+
+    #[test]
+    fn ignored_any() {
+        #[derive(Deserialize, PartialEq, Debug)]
+        struct Outer {
+            #[serde(flatten)]
+            inner: IgnoredAny,
+        }
+
+        assert_de_tokens(
+            &Outer { inner: IgnoredAny },
+            &[Token::Map { len: None }, Token::MapEnd],
+        );
+
+        assert_de_tokens(
+            &Outer { inner: IgnoredAny },
+            &[
+                Token::Struct {
+                    name: "DoNotMatter",
+                    len: 0,
+                },
+                Token::StructEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn flatten_any_after_flatten_struct() {
+        #[derive(PartialEq, Debug)]
+        struct Any;
+
+        impl<'de> Deserialize<'de> for Any {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                struct AnyVisitor;
+
+                impl<'de> Visitor<'de> for AnyVisitor {
+                    type Value = Any;
+
+                    fn expecting(&self, _formatter: &mut fmt::Formatter) -> fmt::Result {
+                        unimplemented!()
+                    }
+
+                    fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+                    where
+                        M: MapAccess<'de>,
+                    {
+                        while let Some((Any, Any)) = map.next_entry()? {}
+                        Ok(Any)
+                    }
+                }
+
+                deserializer.deserialize_any(AnyVisitor)
+            }
+        }
+
+        #[derive(Deserialize, PartialEq, Debug)]
+        struct Outer {
+            #[serde(flatten)]
+            inner: Inner,
+            #[serde(flatten)]
+            extra: Any,
+        }
+
+        #[derive(Deserialize, PartialEq, Debug)]
+        struct Inner {
+            inner: i32,
+        }
+
+        let s = Outer {
+            inner: Inner { inner: 0 },
+            extra: Any,
+        };
+
+        assert_de_tokens(
+            &s,
+            &[
+                Token::Map { len: None },
+                Token::Str("inner"),
+                Token::I32(0),
+                Token::MapEnd,
+            ],
+        );
+    }
+
+    #[test]
+    fn alias() {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct Outer {
+            #[serde(flatten)]
+            a: AliasStruct,
+            b: i32,
+        }
+
+        assert_de_tokens(
+            &Outer {
+                a: AliasStruct {
+                    a1: 1,
+                    a2: 2,
+                    a4: 4,
+                },
+                b: 7,
+            },
+            &[
+                Token::Struct {
+                    name: "Outer",
+                    len: 4,
+                },
+                Token::Str("a1"),
+                Token::I32(1),
+                Token::Str("a2"),
+                Token::I32(2),
+                Token::Str("a5"),
+                Token::I32(4),
+                Token::Str("b"),
+                Token::I32(7),
+                Token::StructEnd,
+            ],
+        );
+
+        assert_de_tokens(
+            &Outer {
+                a: AliasStruct {
+                    a1: 1,
+                    a2: 2,
+                    a4: 4,
+                },
+                b: 7,
+            },
+            &[
+                Token::Struct {
+                    name: "Outer",
+                    len: 4,
+                },
+                Token::Str("a1"),
+                Token::I32(1),
+                Token::Str("a2"),
+                Token::I32(2),
+                Token::Str("a6"),
+                Token::I32(4),
+                Token::Str("b"),
+                Token::I32(7),
+                Token::StructEnd,
+            ],
+        );
+    }
+
+    mod unit {
+        use super::*;
+
+        #[test]
+        fn unit() {
+            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+            struct Response<T> {
+                #[serde(flatten)]
+                data: T,
+                status: usize,
+            }
+
+            assert_tokens(
+                &Response {
+                    data: (),
+                    status: 0,
+                },
+                &[
+                    Token::Map { len: None },
+                    Token::Str("status"),
+                    Token::U64(0),
+                    Token::MapEnd,
+                ],
+            );
+        }
+
+        #[test]
+        fn unit_struct() {
+            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+            struct Response<T> {
+                #[serde(flatten)]
+                data: T,
+                status: usize,
+            }
+
+            #[derive(Debug, PartialEq, Serialize, Deserialize)]
+            struct Unit;
+
+            assert_tokens(
+                &Response {
+                    data: Unit,
+                    status: 0,
+                },
+                &[
+                    Token::Map { len: None },
+                    Token::Str("status"),
+                    Token::U64(0),
+                    Token::MapEnd,
+                ],
+            );
+        }
+    }
+
     mod enum_ {
         use super::*;
 
         mod externally_tagged {
             use super::*;
             use std::iter::FromIterator;
+
+            #[test]
+            fn straightforward() {
+                #[derive(Serialize, Deserialize, PartialEq, Debug)]
+                enum Data {
+                    A {
+                        a: i32,
+                        #[serde(flatten)]
+                        flat: Flat,
+                    },
+                }
+
+                #[derive(Serialize, Deserialize, PartialEq, Debug)]
+                struct Flat {
+                    b: i32,
+                }
+
+                let data = Data::A {
+                    a: 0,
+                    flat: Flat { b: 0 },
+                };
+
+                assert_tokens(
+                    &data,
+                    &[
+                        Token::NewtypeVariant {
+                            name: "Data",
+                            variant: "A",
+                        },
+                        Token::Map { len: None },
+                        Token::Str("a"),
+                        Token::I32(0),
+                        Token::Str("b"),
+                        Token::I32(0),
+                        Token::MapEnd,
+                    ],
+                );
+            }
 
             #[derive(Debug, PartialEq, Serialize, Deserialize)]
             struct Flatten {
@@ -2912,27 +2655,81 @@ mod flatten {
 
             #[derive(Debug, PartialEq, Serialize, Deserialize)]
             enum Enum {
+                Unit,
                 Newtype(HashMap<String, String>),
                 Tuple(u32, u32),
                 Struct { index: u32, value: u32 },
             }
 
             #[test]
-            fn newtype() {
+            fn unit() {
+                let value = Flatten {
+                    data: Enum::Unit,
+                    extra: HashMap::from_iter([("extra_key".into(), "extra value".into())]),
+                };
                 assert_tokens(
-                    &Flatten {
-                        data: Enum::Newtype(HashMap::from_iter([("key".into(), "value".into())])),
-                        extra: HashMap::from_iter([("extra_key".into(), "extra value".into())]),
-                    },
+                    &value,
                     &[
                         Token::Map { len: None },
+                        // data
+                        Token::Str("Unit"), // variant
+                        Token::Unit,
+                        // extra
+                        Token::Str("extra_key"),
+                        Token::Str("extra value"),
+                        Token::MapEnd,
+                    ],
+                );
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // extra
+                        Token::Str("extra_key"),
+                        Token::Str("extra value"),
+                        // data
+                        Token::Str("Unit"), // variant
+                        Token::Unit,
+                        Token::MapEnd,
+                    ],
+                );
+            }
+
+            #[test]
+            fn newtype() {
+                let value = Flatten {
+                    data: Enum::Newtype(HashMap::from_iter([("key".into(), "value".into())])),
+                    extra: HashMap::from_iter([("extra_key".into(), "extra value".into())]),
+                };
+                assert_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // data
                         Token::Str("Newtype"), // variant
                         Token::Map { len: Some(1) },
                         Token::Str("key"),
                         Token::Str("value"),
                         Token::MapEnd,
+                        // extra
                         Token::Str("extra_key"),
                         Token::Str("extra value"),
+                        Token::MapEnd,
+                    ],
+                );
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // extra
+                        Token::Str("extra_key"),
+                        Token::Str("extra value"),
+                        // data
+                        Token::Str("Newtype"), // variant
+                        Token::Map { len: Some(1) },
+                        Token::Str("key"),
+                        Token::Str("value"),
+                        Token::MapEnd,
                         Token::MapEnd,
                     ],
                 );
@@ -2943,20 +2740,39 @@ mod flatten {
             // via FlatMapDeserializer::deserialize_enum
             #[test]
             fn tuple() {
+                let value = Flatten {
+                    data: Enum::Tuple(0, 42),
+                    extra: HashMap::from_iter([("extra_key".into(), "extra value".into())]),
+                };
                 assert_tokens(
-                    &Flatten {
-                        data: Enum::Tuple(0, 42),
-                        extra: HashMap::from_iter([("extra_key".into(), "extra value".into())]),
-                    },
+                    &value,
                     &[
                         Token::Map { len: None },
+                        // data
                         Token::Str("Tuple"), // variant
                         Token::Seq { len: Some(2) },
                         Token::U32(0),
                         Token::U32(42),
                         Token::SeqEnd,
+                        // extra
                         Token::Str("extra_key"),
                         Token::Str("extra value"),
+                        Token::MapEnd,
+                    ],
+                );
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // extra
+                        Token::Str("extra_key"),
+                        Token::Str("extra value"),
+                        // data
+                        Token::Str("Tuple"), // variant
+                        Token::Seq { len: Some(2) },
+                        Token::U32(0),
+                        Token::U32(42),
+                        Token::SeqEnd,
                         Token::MapEnd,
                     ],
                 );
@@ -2967,23 +2783,42 @@ mod flatten {
             // via FlatMapDeserializer::deserialize_enum
             #[test]
             fn struct_from_seq() {
-                assert_de_tokens(
-                    &Flatten {
-                        data: Enum::Struct {
-                            index: 0,
-                            value: 42,
-                        },
-                        extra: HashMap::from_iter([("extra_key".into(), "extra value".into())]),
+                let value = Flatten {
+                    data: Enum::Struct {
+                        index: 0,
+                        value: 42,
                     },
+                    extra: HashMap::from_iter([("extra_key".into(), "extra value".into())]),
+                };
+                assert_de_tokens(
+                    &value,
                     &[
                         Token::Map { len: None },
+                        // data
                         Token::Str("Struct"), // variant
                         Token::Seq { len: Some(2) },
                         Token::U32(0),  // index
                         Token::U32(42), // value
                         Token::SeqEnd,
+                        // extra
                         Token::Str("extra_key"),
                         Token::Str("extra value"),
+                        Token::MapEnd,
+                    ],
+                );
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // extra
+                        Token::Str("extra_key"),
+                        Token::Str("extra value"),
+                        // data
+                        Token::Str("Struct"), // variant
+                        Token::Seq { len: Some(2) },
+                        Token::U32(0),  // index
+                        Token::U32(42), // value
+                        Token::SeqEnd,
                         Token::MapEnd,
                     ],
                 );
@@ -2994,16 +2829,18 @@ mod flatten {
             // via FlatMapDeserializer::deserialize_enum
             #[test]
             fn struct_from_map() {
-                assert_tokens(
-                    &Flatten {
-                        data: Enum::Struct {
-                            index: 0,
-                            value: 42,
-                        },
-                        extra: HashMap::from_iter([("extra_key".into(), "extra value".into())]),
+                let value = Flatten {
+                    data: Enum::Struct {
+                        index: 0,
+                        value: 42,
                     },
+                    extra: HashMap::from_iter([("extra_key".into(), "extra value".into())]),
+                };
+                assert_tokens(
+                    &value,
                     &[
                         Token::Map { len: None },
+                        // data
                         Token::Str("Struct"), // variant
                         Token::Struct {
                             len: 2,
@@ -3014,8 +2851,30 @@ mod flatten {
                         Token::Str("value"),
                         Token::U32(42),
                         Token::StructEnd,
+                        // extra
                         Token::Str("extra_key"),
                         Token::Str("extra value"),
+                        Token::MapEnd,
+                    ],
+                );
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // extra
+                        Token::Str("extra_key"),
+                        Token::Str("extra value"),
+                        // data
+                        Token::Str("Struct"), // variant
+                        Token::Struct {
+                            len: 2,
+                            name: "Struct",
+                        },
+                        Token::Str("index"),
+                        Token::U32(0),
+                        Token::Str("value"),
+                        Token::U32(42),
+                        Token::StructEnd,
                         Token::MapEnd,
                     ],
                 );
@@ -3039,6 +2898,7 @@ mod flatten {
             #[derive(Debug, PartialEq, Serialize, Deserialize)]
             #[serde(tag = "tag", content = "content")]
             enum Enum {
+                Unit,
                 Newtype(NewtypeVariant),
                 Struct { index: u32, value: u32 },
             }
@@ -3049,24 +2909,357 @@ mod flatten {
             }
 
             #[test]
-            fn struct_() {
+            fn unit() {
+                let value = Flatten {
+                    outer: 42,
+                    data: NewtypeWrapper(Enum::Unit),
+                };
+                // Field order: outer, [tag]
                 assert_tokens(
-                    &Flatten {
-                        outer: 42,
-                        data: NewtypeWrapper(Enum::Struct {
-                            index: 0,
-                            value: 42,
-                        }),
-                    },
+                    &value,
                     &[
                         Token::Map { len: None },
+                        // outer
                         Token::Str("outer"),
                         Token::U32(42),
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Unit",
+                        },
+                        // content missing
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [tag], outer
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Unit",
+                        },
+                        // content missing
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: outer, [tag, content]
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Unit",
+                        },
+                        // content
+                        Token::Str("content"),
+                        Token::Unit,
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: outer, [content, tag]
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // content
+                        Token::Str("content"),
+                        Token::Unit,
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Unit",
+                        },
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [tag, content], outer
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Unit",
+                        },
+                        // content
+                        Token::Str("content"),
+                        Token::Unit,
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [content, tag], outer
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // content
+                        Token::Str("content"),
+                        Token::Unit,
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Unit",
+                        },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [tag], outer, [content]
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Unit",
+                        },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // content
+                        Token::Str("content"),
+                        Token::Unit,
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [content], outer, [tag]
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // content
+                        Token::Str("content"),
+                        Token::Unit,
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Unit",
+                        },
+                        Token::MapEnd,
+                    ],
+                );
+            }
+
+            #[test]
+            fn newtype() {
+                let value = Flatten {
+                    outer: 42,
+                    data: NewtypeWrapper(Enum::Newtype(NewtypeVariant { value: 23 })),
+                };
+                // Field order: outer, [tag, content]
+                assert_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Newtype",
+                        },
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 1,
+                            name: "NewtypeVariant",
+                        },
+                        Token::Str("value"),
+                        Token::U32(23),
+                        Token::StructEnd,
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: outer, [content, tag]
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 1,
+                            name: "NewtypeVariant",
+                        },
+                        Token::Str("value"),
+                        Token::U32(23),
+                        Token::StructEnd,
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Newtype",
+                        },
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [tag, content], outer
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Newtype",
+                        },
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 1,
+                            name: "NewtypeVariant",
+                        },
+                        Token::Str("value"),
+                        Token::U32(23),
+                        Token::StructEnd,
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [content, tag], outer
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 1,
+                            name: "NewtypeVariant",
+                        },
+                        Token::Str("value"),
+                        Token::U32(23),
+                        Token::StructEnd,
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Newtype",
+                        },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [tag], outer, [content]
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Newtype",
+                        },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 1,
+                            name: "NewtypeVariant",
+                        },
+                        Token::Str("value"),
+                        Token::U32(23),
+                        Token::StructEnd,
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [content], outer, [tag]
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 1,
+                            name: "NewtypeVariant",
+                        },
+                        Token::Str("value"),
+                        Token::U32(23),
+                        Token::StructEnd,
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Newtype",
+                        },
+                        Token::MapEnd,
+                    ],
+                );
+            }
+
+            #[test]
+            fn struct_() {
+                let value = Flatten {
+                    outer: 42,
+                    data: NewtypeWrapper(Enum::Struct {
+                        index: 0,
+                        value: 42,
+                    }),
+                };
+                // Field order: outer, [tag, content]
+                assert_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // tag
                         Token::Str("tag"),
                         Token::UnitVariant {
                             name: "Enum",
                             variant: "Struct",
                         },
+                        // content
                         Token::Str("content"),
                         Token::Struct {
                             len: 2,
@@ -3080,32 +3273,143 @@ mod flatten {
                         Token::MapEnd,
                     ],
                 );
-            }
-
-            #[test]
-            fn newtype() {
-                assert_tokens(
-                    &Flatten {
-                        outer: 42,
-                        data: NewtypeWrapper(Enum::Newtype(NewtypeVariant { value: 23 })),
-                    },
+                // Field order: outer, [content, tag]
+                assert_de_tokens(
+                    &value,
                     &[
                         Token::Map { len: None },
+                        // outer
                         Token::Str("outer"),
                         Token::U32(42),
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 2,
+                            name: "Struct",
+                        },
+                        Token::Str("index"),
+                        Token::U32(0),
+                        Token::Str("value"),
+                        Token::U32(42),
+                        Token::StructEnd,
+                        // tag
                         Token::Str("tag"),
                         Token::UnitVariant {
                             name: "Enum",
-                            variant: "Newtype",
+                            variant: "Struct",
                         },
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [tag, content], outer
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Struct",
+                        },
+                        // content
                         Token::Str("content"),
                         Token::Struct {
-                            len: 1,
-                            name: "NewtypeVariant",
+                            len: 2,
+                            name: "Struct",
                         },
+                        Token::Str("index"),
+                        Token::U32(0),
                         Token::Str("value"),
-                        Token::U32(23),
+                        Token::U32(42),
                         Token::StructEnd,
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [content, tag], outer
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 2,
+                            name: "Struct",
+                        },
+                        Token::Str("index"),
+                        Token::U32(0),
+                        Token::Str("value"),
+                        Token::U32(42),
+                        Token::StructEnd,
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Struct",
+                        },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [tag], outer, [content]
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Struct",
+                        },
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 2,
+                            name: "Struct",
+                        },
+                        Token::Str("index"),
+                        Token::U32(0),
+                        Token::Str("value"),
+                        Token::U32(42),
+                        Token::StructEnd,
+                        Token::MapEnd,
+                    ],
+                );
+                // Field order: [content], outer, [tag]
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // content
+                        Token::Str("content"),
+                        Token::Struct {
+                            len: 2,
+                            name: "Struct",
+                        },
+                        Token::Str("index"),
+                        Token::U32(0),
+                        Token::Str("value"),
+                        Token::U32(42),
+                        Token::StructEnd,
+                        // outer
+                        Token::Str("outer"),
+                        Token::U32(42),
+                        // tag
+                        Token::Str("tag"),
+                        Token::UnitVariant {
+                            name: "Enum",
+                            variant: "Struct",
+                        },
                         Token::MapEnd,
                     ],
                 );
@@ -3139,17 +3443,20 @@ mod flatten {
                     D { d: i32 },
                 }
 
+                let value = Flatten {
+                    x: X::B { b: 1 },
+                    y: Y::D { d: 2 },
+                };
                 assert_tokens(
-                    &Flatten {
-                        x: X::B { b: 1 },
-                        y: Y::D { d: 2 },
-                    },
+                    &value,
                     &[
                         Token::Map { len: None },
+                        // x
                         Token::Str("typeX"),
                         Token::Str("B"),
                         Token::Str("b"),
                         Token::I32(1),
+                        // y
                         Token::Str("typeY"),
                         Token::Str("D"),
                         Token::Str("d"),
@@ -3157,11 +3464,28 @@ mod flatten {
                         Token::MapEnd,
                     ],
                 );
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // y
+                        Token::Str("typeY"),
+                        Token::Str("D"),
+                        Token::Str("d"),
+                        Token::I32(2),
+                        // x
+                        Token::Str("typeX"),
+                        Token::Str("B"),
+                        Token::Str("b"),
+                        Token::I32(1),
+                        Token::MapEnd,
+                    ],
+                );
             }
 
             #[test]
             fn unit_enum_with_unknown_fields() {
-                #[derive(Debug, PartialEq, Deserialize)]
+                #[derive(Debug, PartialEq, Serialize, Deserialize)]
                 struct Flatten {
                     #[serde(flatten)]
                     x: X,
@@ -3169,31 +3493,49 @@ mod flatten {
                     y: Y,
                 }
 
-                #[derive(Debug, PartialEq, Deserialize)]
+                #[derive(Debug, PartialEq, Serialize, Deserialize)]
                 #[serde(tag = "typeX")]
                 enum X {
                     A,
                 }
 
-                #[derive(Debug, PartialEq, Deserialize)]
+                #[derive(Debug, PartialEq, Serialize, Deserialize)]
                 #[serde(tag = "typeY")]
                 enum Y {
                     B { c: u32 },
                 }
 
-                assert_de_tokens(
-                    &Flatten {
-                        x: X::A,
-                        y: Y::B { c: 0 },
-                    },
+                let value = Flatten {
+                    x: X::A,
+                    y: Y::B { c: 0 },
+                };
+                assert_tokens(
+                    &value,
                     &[
                         Token::Map { len: None },
+                        // x
                         Token::Str("typeX"),
                         Token::Str("A"),
+                        // y
                         Token::Str("typeY"),
                         Token::Str("B"),
                         Token::Str("c"),
-                        Token::I32(0),
+                        Token::U32(0),
+                        Token::MapEnd,
+                    ],
+                );
+                assert_de_tokens(
+                    &value,
+                    &[
+                        Token::Map { len: None },
+                        // y
+                        Token::Str("typeY"),
+                        Token::Str("B"),
+                        Token::Str("c"),
+                        Token::U32(0),
+                        // x
+                        Token::Str("typeX"),
+                        Token::Str("A"),
                         Token::MapEnd,
                     ],
                 );

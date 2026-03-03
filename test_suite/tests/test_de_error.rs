@@ -1439,6 +1439,14 @@ fn test_integer_from_float() {
 }
 
 #[test]
+fn test_nan_no_decimal_point() {
+    assert_de_tokens_error::<isize>(
+        &[Token::F32(f32::NAN)],
+        "invalid type: floating point `NaN`, expected isize",
+    );
+}
+
+#[test]
 fn test_unit_struct_from_seq() {
     assert_de_tokens_error::<UnitStruct>(
         &[Token::Seq { len: Some(0) }, Token::SeqEnd],
@@ -1459,7 +1467,7 @@ fn test_duration_overflow_seq() {
     assert_de_tokens_error::<Duration>(
         &[
             Token::Seq { len: Some(2) },
-            Token::U64(u64::max_value()),
+            Token::U64(u64::MAX),
             Token::U32(1_000_000_000),
             Token::SeqEnd,
         ],
@@ -1476,7 +1484,7 @@ fn test_duration_overflow_struct() {
                 len: 2,
             },
             Token::Str("secs"),
-            Token::U64(u64::max_value()),
+            Token::U64(u64::MAX),
             Token::Str("nanos"),
             Token::U32(1_000_000_000),
             Token::StructEnd,
@@ -1490,7 +1498,7 @@ fn test_systemtime_overflow_seq() {
     assert_de_tokens_error::<SystemTime>(
         &[
             Token::Seq { len: Some(2) },
-            Token::U64(u64::max_value()),
+            Token::U64(u64::MAX),
             Token::U32(1_000_000_000),
             Token::SeqEnd,
         ],
@@ -1507,7 +1515,7 @@ fn test_systemtime_overflow_struct() {
                 len: 2,
             },
             Token::Str("secs_since_epoch"),
-            Token::U64(u64::max_value()),
+            Token::U64(u64::MAX),
             Token::Str("nanos_since_epoch"),
             Token::U32(1_000_000_000),
             Token::StructEnd,
@@ -1516,13 +1524,12 @@ fn test_systemtime_overflow_struct() {
     );
 }
 
-#[cfg(systemtime_checked_add)]
 #[test]
 fn test_systemtime_overflow() {
     assert_de_tokens_error::<SystemTime>(
         &[
             Token::Seq { len: Some(2) },
-            Token::U64(u64::max_value()),
+            Token::U64(u64::MAX),
             Token::U32(0),
             Token::SeqEnd,
         ],

@@ -1,5 +1,7 @@
 #![allow(
+    clippy::elidable_lifetime_names,
     clippy::extra_unused_type_parameters,
+    clippy::needless_lifetimes,
     clippy::type_repetition_in_bounds
 )]
 

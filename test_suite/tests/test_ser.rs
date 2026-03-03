@@ -1,14 +1,13 @@
 #![allow(clippy::derive_partial_eq_without_eq, clippy::unreadable_literal)]
 #![cfg_attr(feature = "unstable", feature(never_type))]
 
-use fnv::FnvHasher;
 use serde_derive::Serialize;
 use serde_test::{assert_ser_tokens, assert_ser_tokens_error, Configure, Token};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::ffi::CString;
 use std::net;
-use std::num::Wrapping;
+use std::num::{Saturating, Wrapping};
 use std::ops::Bound;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak as RcWeak};
@@ -220,7 +219,7 @@ fn test_hashset() {
         &[Token::Seq { len: Some(1) }, Token::I32(1), Token::SeqEnd],
     );
     assert_ser_tokens(
-        &hashset![FnvHasher @ 1],
+        &hashset![foldhash::fast::FixedState; 1],
         &[Token::Seq { len: Some(1) }, Token::I32(1), Token::SeqEnd],
     );
 }
@@ -300,7 +299,7 @@ fn test_hashmap() {
         ],
     );
     assert_ser_tokens(
-        &hashmap![FnvHasher @ 1 => 2],
+        &hashmap![foldhash::fast::FixedState; 1 => 2],
         &[
             Token::Map { len: Some(1) },
             Token::I32(1),
@@ -622,6 +621,11 @@ fn test_arc_weak_none() {
 #[test]
 fn test_wrapping() {
     assert_ser_tokens(&Wrapping(1usize), &[Token::U64(1)]);
+}
+
+#[test]
+fn test_saturating() {
+    assert_ser_tokens(&Saturating(1usize), &[Token::U64(1)]);
 }
 
 #[test]
