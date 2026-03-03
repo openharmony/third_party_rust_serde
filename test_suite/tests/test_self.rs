@@ -1,4 +1,4 @@
-#![allow(clippy::used_underscore_binding)]
+#![allow(clippy::used_underscore_binding, dead_code)]
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -41,7 +41,7 @@ fn test_self() {
     }
 
     #[derive(Deserialize, Serialize)]
-    struct Tuple(
+    pub struct Tuple(
         Box<Self>,
         Box<<Self as Trait>::Assoc>,
         [(); Self::ASSOC],
@@ -60,7 +60,7 @@ fn test_self() {
     }
 
     #[derive(Deserialize, Serialize)]
-    enum Enum {
+    pub enum Enum {
         Struct {
             _f1: Box<Self>,
             _f2: Box<<Self as Trait>::Assoc>,

@@ -32,7 +32,7 @@ ohos_cargo_crate("lib") {
     external_deps += [ "rust_syn:lib" ]
   }
   edition = "2018"
-  cargo_pkg_version = "1.0.195"
+  cargo_pkg_version = "1.0.228"
   cargo_pkg_authors = "Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>"
   cargo_pkg_name = "serde"
   cargo_pkg_description = "A generic serialization/deserialization framework"
