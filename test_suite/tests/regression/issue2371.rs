@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use serde_derive::Deserialize;
 
 #[derive(Deserialize)]
@@ -7,7 +9,9 @@ pub struct Nested;
 pub enum ExternallyTagged {
     Flatten {
         #[serde(flatten)]
+        #[allow(dead_code)]
         nested: Nested,
+        #[allow(dead_code)]
         string: &'static str,
     },
 }
@@ -17,7 +21,9 @@ pub enum ExternallyTagged {
 pub enum InternallyTagged {
     Flatten {
         #[serde(flatten)]
+        #[allow(dead_code)]
         nested: Nested,
+        #[allow(dead_code)]
         string: &'static str,
     },
 }
@@ -27,7 +33,9 @@ pub enum InternallyTagged {
 pub enum AdjacentlyTagged {
     Flatten {
         #[serde(flatten)]
+        #[allow(dead_code)]
         nested: Nested,
+        #[allow(dead_code)]
         string: &'static str,
     },
 }
@@ -37,7 +45,9 @@ pub enum AdjacentlyTagged {
 pub enum UntaggedWorkaround {
     Flatten {
         #[serde(flatten)]
+        #[allow(dead_code)]
         nested: Nested,
+        #[allow(dead_code)]
         string: &'static str,
     },
 }

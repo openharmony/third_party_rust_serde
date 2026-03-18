@@ -4,6 +4,7 @@
 
 #![deny(warnings)]
 #![allow(
+    confusable_idents,
     unknown_lints,
     mixed_script_confusables,
     clippy::derive_partial_eq_without_eq,
@@ -17,8 +18,12 @@
     clippy::ptr_arg,
     clippy::too_many_lines,
     clippy::trivially_copy_pass_by_ref,
-    clippy::type_repetition_in_bounds
+    clippy::type_repetition_in_bounds,
+    // We use lots of declarations inside function bodies to avoid conflicts,
+    // but they aren't used. We just want to make sure they compile.
+    dead_code,
 )]
+#![deny(clippy::collection_is_never_read)]
 
 use serde::de::{Deserialize, DeserializeOwned, Deserializer};
 use serde::ser::{Serialize, Serializer};
@@ -287,60 +292,60 @@ fn test_gen() {
     assert::<EmptyEnumVariant>();
 
     #[derive(Serialize, Deserialize)]
-    struct NonAsciiIdents {
+    pub struct NonAsciiIdents {
         σ: f64,
     }
 
     #[derive(Serialize, Deserialize)]
-    struct EmptyBraced {}
+    pub struct EmptyBraced {}
 
     #[derive(Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct EmptyBracedDenyUnknown {}
+    pub struct EmptyBracedDenyUnknown {}
 
     #[derive(Serialize, Deserialize)]
-    struct BracedSkipAll {
+    pub struct BracedSkipAll {
         #[serde(skip_deserializing)]
         f: u8,
     }
 
     #[derive(Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct BracedSkipAllDenyUnknown {
+    pub struct BracedSkipAllDenyUnknown {
         #[serde(skip_deserializing)]
         f: u8,
     }
 
     #[derive(Serialize, Deserialize)]
-    struct EmptyTuple();
+    pub struct EmptyTuple();
 
     #[derive(Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct EmptyTupleDenyUnknown();
+    pub struct EmptyTupleDenyUnknown();
 
     #[derive(Serialize, Deserialize)]
-    struct TupleSkipAll(#[serde(skip_deserializing)] u8);
-
-    #[derive(Serialize, Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct TupleSkipAllDenyUnknown(#[serde(skip_deserializing)] u8);
-
-    #[derive(Serialize, Deserialize)]
-    enum EmptyEnum {}
+    pub struct TupleSkipAll(#[serde(skip_deserializing)] u8);
 
     #[derive(Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
-    enum EmptyEnumDenyUnknown {}
+    pub struct TupleSkipAllDenyUnknown(#[serde(skip_deserializing)] u8);
 
     #[derive(Serialize, Deserialize)]
-    enum EnumSkipAll {
+    pub enum EmptyEnum {}
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    pub enum EmptyEnumDenyUnknown {}
+
+    #[derive(Serialize, Deserialize)]
+    pub enum EnumSkipAll {
         #[serde(skip_deserializing)]
         #[allow(dead_code)]
         Variant,
     }
 
     #[derive(Serialize, Deserialize)]
-    enum EmptyVariants {
+    pub enum EmptyVariants {
         Braced {},
         Tuple(),
         BracedSkip {
@@ -352,7 +357,7 @@ fn test_gen() {
 
     #[derive(Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
-    enum EmptyVariantsDenyUnknown {
+    pub enum EmptyVariantsDenyUnknown {
         Braced {},
         Tuple(),
         BracedSkip {
@@ -364,21 +369,21 @@ fn test_gen() {
 
     #[derive(Serialize, Deserialize)]
     #[serde(deny_unknown_fields)]
-    struct UnitDenyUnknown;
+    pub struct UnitDenyUnknown;
 
     #[derive(Serialize, Deserialize)]
-    struct EmptyArray {
+    pub struct EmptyArray {
         empty: [X; 0],
     }
 
-    enum Or<A, B> {
+    pub enum Or<A, B> {
         A(A),
         B(B),
     }
 
     #[derive(Serialize, Deserialize)]
     #[serde(untagged, remote = "Or")]
-    enum OrDef<A, B> {
+    pub enum OrDef<A, B> {
         A(A),
         B(B),
     }
@@ -390,7 +395,7 @@ fn test_gen() {
     struct StrDef<'a>(&'a str);
 
     #[derive(Serialize, Deserialize)]
-    struct Remote<'a> {
+    pub struct Remote<'a> {
         #[serde(with = "OrDef")]
         or: Or<u8, bool>,
         #[serde(borrow, with = "StrDef")]
@@ -398,7 +403,7 @@ fn test_gen() {
     }
 
     #[derive(Serialize, Deserialize)]
-    enum BorrowVariant<'a> {
+    pub enum BorrowVariant<'a> {
         #[serde(borrow, with = "StrDef")]
         S(Str<'a>),
     }
@@ -415,14 +420,14 @@ fn test_gen() {
 
     // This would not work if SDef::serialize / deserialize are private.
     #[derive(Serialize, Deserialize)]
-    struct RemoteVisibility {
+    pub struct RemoteVisibility {
         #[serde(with = "vis::SDef")]
         s: vis::S,
     }
 
     #[derive(Serialize, Deserialize)]
     #[serde(remote = "Self")]
-    struct RemoteSelf;
+    pub struct RemoteSelf;
 
     #[derive(Serialize, Deserialize)]
     enum ExternallyTaggedVariantWith {
@@ -546,26 +551,45 @@ fn test_gen() {
     assert::<FlattenWith>();
 
     #[derive(Serialize, Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct FlattenDenyUnknown<T> {
+    pub struct Flatten<T> {
         #[serde(flatten)]
         t: T,
     }
 
     #[derive(Serialize, Deserialize)]
-    struct StaticStrStruct<'a> {
+    #[serde(deny_unknown_fields)]
+    pub struct FlattenDenyUnknown<T> {
+        #[serde(flatten)]
+        t: T,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    pub struct SkipDeserializing<T> {
+        #[serde(skip_deserializing)]
+        flat: T,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct SkipDeserializingDenyUnknown<T> {
+        #[serde(skip_deserializing)]
+        flat: T,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    pub struct StaticStrStruct<'a> {
         a: &'a str,
         b: &'static str,
     }
 
     #[derive(Serialize, Deserialize)]
-    struct StaticStrTupleStruct<'a>(&'a str, &'static str);
+    pub struct StaticStrTupleStruct<'a>(&'a str, &'static str);
 
     #[derive(Serialize, Deserialize)]
-    struct StaticStrNewtypeStruct(&'static str);
+    pub struct StaticStrNewtypeStruct(&'static str);
 
     #[derive(Serialize, Deserialize)]
-    enum StaticStrEnum<'a> {
+    pub enum StaticStrEnum<'a> {
         Struct { a: &'a str, b: &'static str },
         Tuple(&'a str, &'static str),
         Newtype(&'static str),
@@ -639,6 +663,7 @@ fn test_gen() {
             use serde_derive::{Deserialize, Serialize};
 
             #[derive(Serialize, Deserialize)]
+            #[allow(dead_code)]
             struct Restricted {
                 pub(super) a: usize,
                 pub(in super::inner) b: usize,
@@ -648,7 +673,7 @@ fn test_gen() {
 
     #[derive(Deserialize)]
     #[serde(tag = "t", content = "c")]
-    enum AdjacentlyTaggedVoid {}
+    pub enum AdjacentlyTaggedVoid {}
 
     #[derive(Serialize, Deserialize)]
     enum SkippedVariant<T> {
@@ -661,14 +686,14 @@ fn test_gen() {
     assert::<SkippedVariant<X>>();
 
     #[derive(Deserialize)]
-    struct ImplicitlyBorrowedOption<'a> {
-        #[allow(dead_code)]
+    pub struct ImplicitlyBorrowedOption<'a> {
         option: std::option::Option<&'a str>,
     }
 
     #[derive(Serialize, Deserialize)]
     #[serde(untagged)]
-    enum UntaggedNewtypeVariantWith {
+    #[allow(dead_code)]
+    pub enum UntaggedNewtypeVariantWith {
         Newtype(
             #[serde(serialize_with = "ser_x")]
             #[serde(deserialize_with = "de_x")]
@@ -678,7 +703,8 @@ fn test_gen() {
 
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]
-    struct TransparentWith {
+    #[allow(dead_code)]
+    pub struct TransparentWith {
         #[serde(serialize_with = "ser_x")]
         #[serde(deserialize_with = "de_x")]
         x: X,
@@ -686,41 +712,61 @@ fn test_gen() {
 
     #[derive(Deserialize)]
     #[serde(untagged)]
+    #[allow(dead_code)]
     pub enum UntaggedWithBorrow<'a> {
-        Single(#[serde(borrow)] RelObject<'a>),
-        Many(#[serde(borrow)] Vec<RelObject<'a>>),
+        Single(
+            #[serde(borrow)]
+            #[allow(dead_code)]
+            RelObject<'a>,
+        ),
+        Many(
+            #[serde(borrow)]
+            #[allow(dead_code)]
+            Vec<RelObject<'a>>,
+        ),
     }
 
     #[derive(Deserialize)]
-    struct RelObject<'a> {
-        #[allow(dead_code)]
+    pub struct RelObject<'a> {
         ty: &'a str,
-        #[allow(dead_code)]
         id: String,
     }
 
     #[derive(Serialize, Deserialize)]
-    struct FlattenSkipSerializing<T> {
+    pub struct FlattenSkipSerializing<T> {
         #[serde(flatten, skip_serializing)]
         #[allow(dead_code)]
         flat: T,
     }
 
     #[derive(Serialize, Deserialize)]
-    struct FlattenSkipSerializingIf<T> {
+    pub struct FlattenSkipSerializingIf<T> {
         #[serde(flatten, skip_serializing_if = "StdOption::is_none")]
         flat: StdOption<T>,
     }
 
     #[derive(Serialize, Deserialize)]
-    struct FlattenSkipDeserializing<T> {
+    pub struct FlattenSkipDeserializing<T> {
         #[serde(flatten, skip_deserializing)]
         flat: T,
     }
 
+    #[derive(Serialize, Deserialize)]
+    #[serde(untagged)]
+    pub enum Inner<T> {
+        Builder {
+            s: T,
+            #[serde(flatten)]
+            o: T,
+        },
+        Default {
+            s: T,
+        },
+    }
+
     // https://github.com/serde-rs/serde/issues/1804
     #[derive(Serialize, Deserialize)]
-    enum Message {
+    pub enum Message {
         #[serde(skip)]
         #[allow(dead_code)]
         String(String),
@@ -729,7 +775,8 @@ fn test_gen() {
     }
 
     #[derive(Serialize)]
-    #[repr(packed)]
+    #[repr(C, packed)]
+    #[allow(dead_code)]
     struct Packed {
         x: u8,
         y: u16,
@@ -738,8 +785,7 @@ fn test_gen() {
     macro_rules! deriving {
         ($field:ty) => {
             #[derive(Deserialize)]
-            struct MacroRules<'a> {
-                #[allow(dead_code)]
+            pub struct MacroRules<'a> {
                 field: $field,
             }
         };
@@ -754,21 +800,22 @@ fn test_gen() {
     }
 
     #[derive(Deserialize)]
-    struct BorrowLifetimeInsideMacro<'a> {
+    pub struct BorrowLifetimeInsideMacro<'a> {
         #[serde(borrow = "'a")]
-        #[allow(dead_code)]
-        f: mac!(Cow<'a, str>),
+        pub f: mac!(Cow<'a, str>),
     }
 
     #[derive(Serialize)]
-    struct Struct {
+    pub struct Struct {
         #[serde(serialize_with = "vec_first_element")]
-        vec: Vec<Self>,
+        pub vec: Vec<Self>,
     }
+
+    assert_ser::<Struct>();
 
     #[derive(Deserialize)]
     #[serde(bound(deserialize = "[&'de str; N]: Copy"))]
-    struct GenericUnitStruct<const N: usize>;
+    pub struct GenericUnitStruct<const N: usize>;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -855,7 +902,7 @@ where
 
 #[derive(Debug, PartialEq, Deserialize)]
 #[serde(tag = "tag")]
-enum InternallyTagged {
+pub enum InternallyTagged {
     #[serde(deserialize_with = "deserialize_generic")]
     Unit,
 
@@ -876,14 +923,14 @@ where
 
 //////////////////////////////////////////////////////////////////////////
 
-#[repr(packed)]
+#[repr(C, packed)]
 pub struct RemotePacked {
     pub a: u16,
     pub b: u32,
 }
 
 #[derive(Serialize)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[serde(remote = "RemotePacked")]
 pub struct RemotePackedDef {
     a: u16,
@@ -894,14 +941,14 @@ impl Drop for RemotePackedDef {
     fn drop(&mut self) {}
 }
 
-#[repr(packed)]
+#[repr(C, packed)]
 pub struct RemotePackedNonCopy {
     pub a: u16,
     pub b: String,
 }
 
 #[derive(Deserialize)]
-#[repr(packed)]
+#[repr(C, packed)]
 #[serde(remote = "RemotePackedNonCopy")]
 pub struct RemotePackedNonCopyDef {
     a: u16,
