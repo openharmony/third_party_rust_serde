@@ -19,12 +19,16 @@ ohos_cargo_crate("lib") {
   crate_root = "src/lib.rs"
 
   sources = [ "src/lib.rs" ]
-
-  deps = [
-    "../serde_derive:lib(${host_toolchain})"
+  rustflags = [
+    "--cfg",
+    "no_diagnostic_namespace"
   ]
-  edition = "2018"
-  cargo_pkg_version = "1.0.195"
+  deps = [
+    "../serde_derive:lib(${host_toolchain})",
+    "../serde_core:lib"
+  ]
+  edition = "2021"
+  cargo_pkg_version = "1.0.228"
   cargo_pkg_authors = "Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>"
   cargo_pkg_name = "serde"
   cargo_pkg_description = "A generic serialization/deserialization framework"

@@ -1,7 +1,10 @@
 #![allow(
     clippy::derive_partial_eq_without_eq,
     clippy::items_after_statements,
-    clippy::used_underscore_binding
+    clippy::used_underscore_binding,
+    // We use lots of declarations inside function bodies to avoid conflicts,
+    // but they aren't used. We just want to make sure they compile.
+    dead_code,
 )]
 
 use serde::de::value::{BorrowedStrDeserializer, MapDeserializer};
@@ -162,7 +165,7 @@ fn test_cow() {
 #[test]
 fn test_lifetimes() {
     #[derive(Deserialize)]
-    struct Cows<'a, 'b> {
+    pub struct Cows<'a, 'b> {
         _copied: Cow<'a, str>,
 
         #[serde(borrow)]
@@ -178,7 +181,7 @@ fn test_lifetimes() {
     }
 
     #[derive(Deserialize)]
-    struct Wrap<'a, 'b> {
+    pub struct Wrap<'a, 'b> {
         #[serde(borrow = "'b")]
         _cows: Cows<'a, 'b>,
     }
